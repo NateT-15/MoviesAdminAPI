@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Dapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MoviesAdminAPI.DTOs;
 using System.Collections;
+using System.Data;
 
 namespace MoviesAdminAPI.Controllers
 {
@@ -9,23 +11,34 @@ namespace MoviesAdminAPI.Controllers
     [ApiController]
     public class MoviesController : ControllerBase
     {
+        private readonly IDbConnection _db;
+
         //Constructor
-        public MoviesController()
+        public MoviesController(IDbConnection db)
         {
-            //Initialize any dependencies or services here
+            _db = db;
         }
 
         // GET /api/movies
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Movie>>> GetAllMovies()
         {
-            // Create a couple sample movies to return
+            var sql = @"SELECT m.*, g.*, ar.*
+                FROM Movie m
+                INNER JOIN Genre g ON m.GenreId = g.Id
+                INNER JOIN AudienceRating ar ON m.AudienceRatingId = ar.Id";
+                
 
-            var movies = new List<Movie>
-            {
-                new Movie { Id = 1, Title = "Movie 1" },
-                new Movie { Id = 2, Title = "Movie 2"}
-            };
+            // Fetch all movies from database <Table 1, Table 2, Table 3>
+            var movies = await _db.QueryAsync<Movie,Genre,AudienceRating,Movie>(
+                sql,
+                (movie, genre, audienceRating) =>
+                {
+                    movie.Genre = genre;
+                    movie.AudienceRating = audienceRating;
+                    return movie;
+                });
+
             return Ok(movies);
         }
     }
